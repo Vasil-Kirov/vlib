@@ -3,14 +3,29 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include "log.h"
 #define _CRT_SECURE_NO_WARNINGS
 
-#define VAlloc AllocateMemory
-#define VFree  free
+#define VAlloc  AllocateMemory
+#define VFree   free
 #define VStrCat strcat
 #define VStrCmp VStrCompare
 #define VStrLen strlen
+
+typedef int8_t  i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+
+typedef uint8_t  u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef uint32_t b32;
+typedef float    f32;
+typedef double   f64;
 
 #if defined(_WIN32)
 #include <Windows.h>

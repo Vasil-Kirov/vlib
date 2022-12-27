@@ -6,8 +6,13 @@
 #include <stdint.h>
 #define _CRT_SECURE_NO_WARNINGS
 
+#ifndef VAlloc
 #define VAlloc  AllocateMemory
+#endif
+#ifndef VFree
 #define VFree   free
+#endif
+
 #define VStrCat strcat
 #define VStrCmp VStrCompare
 #define VStrLen strlen
@@ -87,6 +92,87 @@ inline void *AllocateMemory(int Size)
 	memset(Result, 0, Size);
 	return Result;
 }
+
+// **************************************************************
+// *
+// *
+// *                       Dynamic Array
+// *
+// *
+// **************************************************************
+
+typedef struct
+{
+	size_t TypeSize;
+	size_t Capacity;
+	size_t Used;
+	size_t Len;
+} arr_header;
+
+#define ARR_HEAD(ARR) (((arr_header *)ARR) - 1)
+#define VLibArrCreate(TYPE) (TYPE *)_VLibArrCreate(sizeof(TYPE))
+#define VLibArrPush(ARR, ITEM) _VLibArrPush((void **)&ARR, (void *)&ITEM)
+#define VLibArrLen(ARR) ARR_HEAD(ARR)->Len
+#define VLibArrFree(ARR) VFree(ARR_HEAD(ARR))
+
+#ifndef VLIB_NO_SHORT_NAMES
+#define ArrCreate VLibArrCreate
+#define ArrPush   VLibArrPush
+#define ArrLen    VLibArrLen
+#define ArrFree   VLibArrFree
+#endif
+
+void *
+_VLibArrCreate(size_t TypeSize)
+{
+	size_t CurrentlyCommited = TypeSize * 8 + sizeof(arr_header);
+	void *Result = VAlloc(CurrentlyCommited);
+	arr_header *Header = (arr_header *)Result;
+	Header->TypeSize = TypeSize;
+	Header->Capacity = CurrentlyCommited - sizeof(arr_header);
+	return Header + 1;
+}
+
+void
+_VLibArrPush(void **Array, void *Item)
+{
+	void *ArrayPtr = *Array;
+	int TypeSize = ARR_HEAD(ArrayPtr)->TypeSize;
+	if (ARR_HEAD(ArrayPtr)->Used + TypeSize > ARR_HEAD(ArrayPtr)->Capacity)
+	{
+		size_t NewSize = ARR_HEAD(ArrayPtr)->Capacity * 1.5;
+		void *NewPtr = VAlloc(NewSize + sizeof(arr_header));
+		if (NewPtr == 0)
+		{
+			// @TODO: ADD LOGGER
+			// @TODO: ADD LOGGER
+			// @TODO: ADD LOGGER
+			fprintf(stderr, "Out of memory, got NULL when trying to allocate %zd bytes!", NewSize);
+			exit(1);
+		}
+		arr_header *CopyStart = (arr_header *)ArrayPtr - 1;
+		int SizeToCopy = ARR_HEAD(ArrayPtr)->Used + sizeof(arr_header);
+		memcpy(NewPtr, CopyStart, SizeToCopy);
+
+		VFree((arr_header *)ArrayPtr - 1);
+		*Array = (arr_header *)NewPtr + 1;
+		ArrayPtr = *Array;
+		ARR_HEAD(ArrayPtr)->Capacity = NewSize;
+	}
+	void *NewItemLocation = (char *)ArrayPtr + ARR_HEAD(ArrayPtr)->Used;
+	memcpy(NewItemLocation, Item, TypeSize);
+
+	ARR_HEAD(ArrayPtr)->Len++;
+	ARR_HEAD(ArrayPtr)->Used += TypeSize;
+}
+
+// **************************************************************
+// *
+// *
+// *                       General stuff
+// *
+// *
+// **************************************************************
 
 bool
 VStrCompare(char *str1, char *str2)
@@ -172,7 +258,7 @@ bool
 GetProgramDirectory(char *Out)
 {
 #if defined(_WIN32)
-	return GetCurrentDirectory(MAX_PATH, Out) != 0;
+	return GetCurrentDirectoryA(MAX_PATH, Out) != 0;
 #else
 #error GetProgramDirectory not implemented
 #endif
@@ -181,12 +267,12 @@ GetProgramDirectory(char *Out)
 inline void
 FreeFileList(const char **List)
 {
-	int ListLen = arrlen(List);
+	int ListLen = VLibArrLen(List);
 	for(int i = 0; i < ListLen; ++i)
 	{
 		VFree((void *)List[i]);
 	}
-	arrfree(List);
+	VLibArrFree(List);
 }
 
 inline char **
@@ -200,7 +286,7 @@ GetFileList(const char *Directory)
 	char *Search = (char *)VAlloc(VStrLen((char *)Directory) + 4);
 	VStrCat(Search, (char *)ActualDir);
 	VStrCat(Search, "*");
-	char **Result = NULL;
+	char **Result = VLibArrCreate(char *);
 
 
 	WIN32_FIND_DATAA Data = {0};
@@ -210,9 +296,9 @@ GetFileList(const char *Directory)
 	{
 		VStrCat(ActualDir, Data.cFileName);
 		int FullLen = VStrLen(ActualDir);
-		char *FullPath = VAlloc(FullLen + 1);
+		char *FullPath = (char *)VAlloc(FullLen + 1);
 		memcpy(FullPath, ActualDir, FullLen);
-		arrpush(Result, FullPath);
+		VLibArrPush(Result, FullPath);
 	}
 
 	while(true)
@@ -222,9 +308,9 @@ GetFileList(const char *Directory)
 		{
 			VStrCat(ActualDir, Data.cFileName);
 			int FullLen = VStrLen(ActualDir);
-			char *FullPath = VAlloc(FullLen + 1);
+			char *FullPath = (char *)VAlloc(FullLen + 1);
 			memcpy(FullPath, ActualDir, FullLen);
-			arrpush(Result, FullPath);
+			VLibArrPush(Result, FullPath);
 
 			ActualDir[DirLen] = 0;
 		}
@@ -251,81 +337,17 @@ StringEndsWith(char *String, char *End)
 // **************************************************************
 // *
 // *
-// *                       Dynamic Array
+// *                       Timers
 // *
 // *
 // **************************************************************
 
 typedef struct
 {
-	size_t TypeSize;
-	size_t Capacity;
-	size_t Used;
-	size_t Len;
-} arr_header;
-
-#define ARR_HEAD(ARR) (((arr_header *)ARR) - 1)
-#define VLibArrCreate(TYPE) (TYPE *)_VLibArrCreate(sizeof(TYPE))
-#define VLibArrPush(ARR, ITEM) _VLibArrPush(&ARR, &ITEM)
-#define VLibArrLen(ARR) ARR_HEAD(ARR)->Len
-
-#ifndef VLIB_NO_SHORT_NAMES
-#define ArrCreate VLibArrCreate
-#define ArrPush VLibArrPush
-#define ArrLen VLibArrLen;
-#endif
-
-void *
-_VLibArrCreate(size_t TypeSize)
-{
-	size_t CurrentlyCommited = TypeSize * 8 + sizeof(arr_header);
-	void *Result = VAlloc(CurrentlyCommited);
-	arr_header *Header = (arr_header *)Result;
-	Header->TypeSize = TypeSize;
-	Header->Capacity = CurrentlyCommited - sizeof(arr_header);
-	return Header + 1;
-}
-
-void
-_VLibArrPush(void **Array, void *Item)
-{
-	void *ArrayPtr = *Array;
-	int TypeSize = ARR_HEAD(ArrayPtr)->TypeSize;
-	if (ARR_HEAD(ArrayPtr)->Used + TypeSize > ARR_HEAD(ArrayPtr)->Capacity)
-	{
-		size_t NewSize = ARR_HEAD(ArrayPtr)->Capacity * 1.5;
-		void *NewPtr = VAlloc(NewSize + sizeof(arr_header));
-		if (NewPtr == 0)
-		{
-			// @TODO: ADD LOGGER
-			// @TODO: ADD LOGGER
-			// @TODO: ADD LOGGER
-			fprintf(stderr, "Out of memory, got NULL when trying to allocate %zd bytes!", NewSize);
-			exit(1);
-		}
-		arr_header *CopyStart = (arr_header *)ArrayPtr - 1;
-		int SizeToCopy = ARR_HEAD(ArrayPtr)->Used + sizeof(arr_header);
-		memcpy(NewPtr, CopyStart, SizeToCopy);
-
-		VFree((arr_header *)ArrayPtr - 1);
-		*Array = (arr_header *)NewPtr + 1;
-		ArrayPtr = *Array;
-		ARR_HEAD(ArrayPtr)->Capacity = NewSize;
-	}
-	void *NewItemLocation = (char *)ArrayPtr + ARR_HEAD(ArrayPtr)->Used;
-	memcpy(NewItemLocation, Item, TypeSize);
-
-	ARR_HEAD(ArrayPtr)->Len++;
-	ARR_HEAD(ArrayPtr)->Used += TypeSize;
-}
-
-// **************************************************************
-// *
-// *
-// *                       Timers
-// *
-// *
-// **************************************************************
+	const char *Name;
+	i64 Start;
+	i64 End;
+} timer_group;
 
 i64
 _VLibClock(i64 Factor)
@@ -365,6 +387,49 @@ i64
 VLibClockS()
 {
 	return _VLibClock(1);
+}
+
+timer_group
+VLibStartTimer(const char *Name)
+{
+	timer_group Group;
+	Group.Name  = Name;
+	Group.Start = VLibClockUs();
+	Group.End   = 0;
+	return Group;
+}
+
+void
+VLibStopTimer(timer_group *Group)
+{
+	Group->End = VLibClockUs();
+}
+
+void
+VLibCompareTimers(timer_group A, timer_group B)
+{
+	i64 ATime = A.End - A.Start;
+	i64 BTime = B.End - B.Start;
+	timer_group *Winner = NULL;
+	timer_group *Loser = NULL;
+	if(ATime > BTime)
+	{
+		Winner = &B;
+		Loser = &A;
+	}
+	else if(BTime > ATime)
+	{
+		Winner = &A;
+		Loser = &B;
+	}
+	else
+	{
+		printf("It's draw with both %s and %s taking %lld microseconds", A.Name, B.Name, ATime);
+		return;
+	}
+	i64 WinnerTimer = Winner->End - Winner->Start;
+	i64 LoserTimer = Loser->End - Loser->Start;
+	printf("%s wins with a time of %lldus\n%s has %lldus, they lost by %lldus", Winner->Name, WinnerTimer, Loser->Name, LoserTimer, LoserTimer - WinnerTimer);
 }
 
 #ifndef VLIB_NO_SHORT_NAMES

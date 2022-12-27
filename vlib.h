@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "log.h"
 #define _CRT_SECURE_NO_WARNINGS
 
 #define VAlloc  AllocateMemory
@@ -43,6 +42,8 @@ typedef struct
 #define KB(N) (((unsigned long long)N) << 10)
 #define MB(N) (((unsigned long long)N) << 20)
 #define GB(N) (((unsigned long long)N) << 30)
+
+#define RET_EMPTY(TYPE) { TYPE __EMPTY_S__ = {0}; return __EMPTY_S__; }
 
 inline void *AllocateVirtualMemory(unsigned long long Size)
 {
@@ -100,7 +101,7 @@ inline entire_file ReadEntireFile(const char *FileName)
 	if(err != 0 || f == NULL)
 	{
 		fprintf(stderr, "Couldn't open file %s! Error %s.\n", FileName, strerror(err));
-		return (entire_file){NULL, 0};
+		RET_EMPTY(entire_file);
 	}
 
 	fseek(f, 0, SEEK_END);
@@ -108,7 +109,7 @@ inline entire_file ReadEntireFile(const char *FileName)
 	Result.Data = VAlloc(Result.Size);
 	rewind(f);
 	if(fread(Result.Data, Result.Size, 1, f) != 1)
-		return (entire_file){NULL, 0};
+		RET_EMPTY(entire_file);
 	fclose(f);
 	return Result;
 }
@@ -220,3 +221,73 @@ StringEndsWith(char *String, char *End)
 	return VStrCmp(String, End);
 }
 
+// **************************************************************
+// *
+// *
+// *                       Dynamic Array
+// *
+// *
+// **************************************************************
+
+typedef struct
+{
+	size_t TypeSize;
+	size_t Capacity;
+	size_t Used;
+	size_t Len;
+} arr_header;
+
+#define ARR_HEAD(ARR) (((arr_header *)ARR) - 1)
+#define VLibArrCreate(TYPE) (TYPE *)_VLibArrCreate(sizeof(TYPE))
+#define VLibArrPush(ARR, ITEM) _VLibArrPush(&ARR, &ITEM)
+#define VLibArrLen(ARR) ARR_HEAD(ARR)->Len
+
+#ifndef VLIB_NO_SHORT_NAMES
+#define ArrCreate VLibArrCreate
+#define ArrPush VLibArrPush
+#define ArrLen VLibArrLen;
+#endif
+
+void *
+_VLibArrCreate(size_t TypeSize)
+{
+	size_t CurrentlyCommited = TypeSize * 8 + sizeof(arr_header);
+	void *Result = VAlloc(CurrentlyCommited);
+	arr_header *Header = (arr_header *)Result;
+	Header->TypeSize = TypeSize;
+	Header->Capacity = CurrentlyCommited - sizeof(arr_header);
+	return Header + 1;
+}
+
+void
+_VLibArrPush(void **Array, void *Item)
+{
+	void *ArrayPtr = *Array;
+	int TypeSize = ARR_HEAD(ArrayPtr)->TypeSize;
+	if (ARR_HEAD(ArrayPtr)->Used + TypeSize > ARR_HEAD(ArrayPtr)->Capacity)
+	{
+		size_t NewSize = ARR_HEAD(ArrayPtr)->Capacity * 1.5;
+		void *NewPtr = VAlloc(NewSize + sizeof(arr_header));
+		if (NewPtr == 0)
+		{
+			// @TODO: ADD LOGGER
+			// @TODO: ADD LOGGER
+			// @TODO: ADD LOGGER
+			fprintf(stderr, "Out of memory, got NULL when trying to allocate %zd bytes!", NewSize);
+			exit(1);
+		}
+		arr_header *CopyStart = (arr_header *)ArrayPtr - 1;
+		int SizeToCopy = ARR_HEAD(ArrayPtr)->Used + sizeof(arr_header);
+		memcpy(NewPtr, CopyStart, SizeToCopy);
+
+		VFree((arr_header *)ArrayPtr - 1);
+		*Array = (arr_header *)NewPtr + 1;
+		ArrayPtr = *Array;
+		ARR_HEAD(ArrayPtr)->Capacity = NewSize;
+	}
+	void *NewItemLocation = (char *)ArrayPtr + ARR_HEAD(ArrayPtr)->Used;
+	memcpy(NewItemLocation, Item, TypeSize);
+
+	ARR_HEAD(ArrayPtr)->Len++;
+	ARR_HEAD(ArrayPtr)->Used += TypeSize;
+}

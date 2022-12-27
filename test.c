@@ -8,13 +8,9 @@ typedef struct
 } some_data;
 #pragma pack(pop)
 
-int testx()
-{
-    return 5;
-}
-
 int main()
 {
+    InitVLib();
     printf("size of struct %zd\n", sizeof(some_data));
     some_data *MyArr = ArrCreate(some_data);
     for (int i = 0; i < 50; ++i)
@@ -25,4 +21,8 @@ int main()
     for(int i = 0; i < 50; ++i)
         printf("It X: %d It Y: %d\n", MyArr[i].x, MyArr[i].y);
 
+    while(true)
+    {
+        printf("%llu\n", ClockNs());
+    }
 }

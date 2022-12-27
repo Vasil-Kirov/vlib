@@ -45,6 +45,33 @@ typedef struct
 
 #define RET_EMPTY(TYPE) { TYPE __EMPTY_S__ = {0}; return __EMPTY_S__; }
 
+static b32 IsVLibInit = false;
+#if defined(_WIN32)
+i64 StartCounter;
+i64 PerfFrequency;
+#endif
+
+// @Note: Only needed for timers
+inline b32 InitVLib()
+{
+#if defined(_WIN32)
+	LARGE_INTEGER PerfFreqLarge;
+	LARGE_INTEGER PerfCountLarge;
+	if(QueryPerformanceFrequency(&PerfFreqLarge) == 0)
+		return false;
+	
+	if(QueryPerformanceCounter(&PerfCountLarge) == 0)
+		return false;
+
+	StartCounter = PerfCountLarge.QuadPart;
+	PerfFrequency = PerfFreqLarge.QuadPart;
+	IsVLibInit = true;
+	return true;
+#else
+return true;
+#endif
+}
+
 inline void *AllocateVirtualMemory(unsigned long long Size)
 {
 #if defined(_WIN32)
@@ -291,3 +318,58 @@ _VLibArrPush(void **Array, void *Item)
 	ARR_HEAD(ArrayPtr)->Len++;
 	ARR_HEAD(ArrayPtr)->Used += TypeSize;
 }
+
+// **************************************************************
+// *
+// *
+// *                       Timers
+// *
+// *
+// **************************************************************
+
+i64
+_VLibClock(i64 Factor)
+{
+	if(!IsVLibInit)
+		return 0;
+#if defined(_WIN32)
+	LARGE_INTEGER PerformanceCounter;
+	if(QueryPerformanceCounter(&PerformanceCounter) == 0)
+		return 0;
+	
+	return (PerformanceCounter.QuadPart - StartCounter) * (Factor) / PerfFrequency;
+#else
+#error VLibClockNs not implemented
+#endif
+}
+
+i64
+VLibClockNs()
+{
+	return _VLibClock(1000000000);
+}
+
+i64
+VLibClockUs()
+{
+	return _VLibClock(1000000);
+}
+
+i64
+VLibClockMs()
+{
+	return _VLibClock(1000);
+}
+
+i64
+VLibClockS()
+{
+	return _VLibClock(1);
+}
+
+#ifndef VLIB_NO_SHORT_NAMES
+#define ClockNs VLibClockNs 
+#define ClockUs VLibClockUs 
+#define ClockMs VLibClockMs 
+#define ClockS  VLibClockS 
+#endif

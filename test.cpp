@@ -1,13 +1,14 @@
 #include "vlib.h"
 #include <vector>
+using namespace std;
 
-#pragma pack(push, 1)
-typedef struct
+
+typedef struct __attribute__ ((packed))
 {
     int y;
     short x;
 } some_data;
-#pragma pack(pop)
+
 
 #define ITs 5000000
 
@@ -28,7 +29,7 @@ int main()
     VLibStopTimer(&VLibArr);
 
     timer_group VecTimer = VLibStartTimer("Std Vector Array");
-    std::vector<some_data> vec;
+    vector<some_data> vec;
     for (int i = 0; i < ITs; ++i)
     {
         some_data It = {i * 2, (short)i};

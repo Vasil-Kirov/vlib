@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <errno.h>
 #define _CRT_SECURE_NO_WARNINGS
 
 #ifndef VAlloc
@@ -32,7 +33,28 @@ typedef float    f32;
 typedef double   f64;
 
 #if defined(_WIN32)
+
 #include <Windows.h>
+
+#define VMAX_PATH MAX_PATH
+
+i64 StartCounter;
+i64 PerfFrequency;
+
+#else
+
+#include <sys/mman.h>
+#include <unistd.h>
+#include <limits.h>
+#include <dirent.h>
+#include <time.h>
+
+timespec StartCounter;
+timespec Resolution;
+clockid_t CPUClockID;
+
+#define VMAX_PATH PATH_MAX
+
 #endif
 
 #if !defined __cplusplus
@@ -51,10 +73,6 @@ typedef struct
 #define RET_EMPTY(TYPE) { TYPE __EMPTY_S__ = {0}; return __EMPTY_S__; }
 
 static b32 IsVLibInit = false;
-#if defined(_WIN32)
-i64 StartCounter;
-i64 PerfFrequency;
-#endif
 
 // @Note: Only needed for timers
 inline b32 InitVLib()
@@ -73,7 +91,13 @@ inline b32 InitVLib()
 	IsVLibInit = true;
 	return true;
 #else
-return true;
+
+	clock_getcpuclockid(0, &CPUClockID);
+	clock_getres(CPUClockID, &Resolution);
+	clock_gettime(CPUClockID, &StartCounter);
+	IsVLibInit = true;
+	return true;
+
 #endif
 }
 
@@ -82,10 +106,11 @@ inline void *AllocateVirtualMemory(unsigned long long Size)
 #if defined(_WIN32)
 	return VirtualAlloc(NULL, Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #else
-#error AllocateVirtualMemory not implemented
+	return mmap(NULL, Size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
 #endif
 }
 
+// @NOTE: Default allocator
 inline void *AllocateMemory(int Size)
 {
 	void *Result = malloc(Size);
@@ -210,10 +235,10 @@ inline entire_file ReadEntireFile(const char *FileName)
 {
 	entire_file Result = {0};
 	FILE *f;
-	errno_t err = fopen_s(&f, FileName, "rb");
-	if(err != 0 || f == NULL)
+	f = fopen(FileName, "rb");
+	if(f == NULL)
 	{
-		fprintf(stderr, "Couldn't open file %s! Error %s.\n", FileName, strerror(err));
+		fprintf(stderr, "Couldn't open file %s! Error %s.\n", FileName, strerror(errno));
 		RET_EMPTY(entire_file);
 	}
 
@@ -245,22 +270,32 @@ ChangeFileExtension(const char *FileName, const char *NewExt)
 inline char *GetAbsolutePath(const char *RelativePath)
 {
 #if defined(_WIN32)
-	char *FullPath = (char *)VAlloc(MAX_PATH);
-	if(GetFullPathNameA(RelativePath, MAX_PATH, FullPath, NULL) == 0)
+	char *FullPath = (char *)VAlloc(VMAX_PATH);
+	if(GetFullPathNameA(RelativePath, VMAX_PATH, FullPath, NULL) == 0)
+	{
+		VFree(FullPath);
 		return NULL;
+	}
 	return FullPath;
 #else
-#error GetAbsolutePath not implemented
+	char *FullPath = (char *)VAlloc(VMAX_PATH);
+	if(realpath(RelativePath, FullPath) == NULL)
+	{
+		printf("%s %s %d\n", RelativePath, strerror(errno), errno);
+		VFree(FullPath);
+		return NULL;
+	}
+	return FullPath;
 #endif
 }
 
 bool
-GetProgramDirectory(char *Out)
+GetActiveDirectory(char *Out)
 {
 #if defined(_WIN32)
-	return GetCurrentDirectoryA(MAX_PATH, Out) != 0;
+	return GetCurrentDirectoryA(VMAX_PATH, Out) != 0;
 #else
-#error GetProgramDirectory not implemented
+	return getcwd(Out, PATH_MAX) != NULL;
 #endif
 }
 
@@ -276,28 +311,29 @@ FreeFileList(const char **List)
 }
 
 inline char **
-GetFileList(const char *Directory)
+GetFileList(const char *DirectoryPath)
 {
+	char *DirectoryFullPath = (char *)GetAbsolutePath((char *)DirectoryPath);
+	char **Result = VLibArrCreate(char *);
+	if(DirectoryFullPath == NULL)
+		return NULL;
 #if defined(_WIN32)
-	char *ActualDir = (char *)GetAbsolutePath((char *)Directory);
-	VStrCat(ActualDir, "\\");
-	auto DirLen = VStrLen(ActualDir);
+	VStrCat(DirectoryFullPath, "\\");
+	auto DirLen = VStrLen(DirectoryFullPath);
 
 	char *Search = (char *)VAlloc(VStrLen((char *)Directory) + 4);
-	VStrCat(Search, (char *)ActualDir);
+	VStrCat(Search, (char *)DirectoryFullPath);
 	VStrCat(Search, "*");
-	char **Result = VLibArrCreate(char *);
-
 
 	WIN32_FIND_DATAA Data = {0};
 	HANDLE FindHandle = FindFirstFileA(Search, &Data);
 	if(FindHandle == INVALID_HANDLE_VALUE)
 		return Result;
 	{
-		VStrCat(ActualDir, Data.cFileName);
-		int FullLen = VStrLen(ActualDir);
+		VStrCat(DirectoryFullPath, Data.cFileName);
+		int FullLen = VStrLen(DirectoryFullPath);
 		char *FullPath = (char *)VAlloc(FullLen + 1);
-		memcpy(FullPath, ActualDir, FullLen);
+		memcpy(FullPath, DirectoryFullPath, FullLen);
 		VLibArrPush(Result, FullPath);
 	}
 
@@ -306,13 +342,13 @@ GetFileList(const char *Directory)
 
 		if(FindNextFileA(FindHandle, &Data))
 		{
-			VStrCat(ActualDir, Data.cFileName);
-			int FullLen = VStrLen(ActualDir);
+			VStrCat(DirectoryFullPath, Data.cFileName);
+			int FullLen = VStrLen(DirectoryFullPath);
 			char *FullPath = (char *)VAlloc(FullLen + 1);
-			memcpy(FullPath, ActualDir, FullLen);
+			memcpy(FullPath, DirectoryFullPath, FullLen);
 			VLibArrPush(Result, FullPath);
 
-			ActualDir[DirLen] = 0;
+			DirectoryFullPath[DirLen] = 0;
 		}
 		else
 			break;
@@ -321,7 +357,25 @@ GetFileList(const char *Directory)
 	FindClose(FindHandle);
 	return Result;
 #else
-#error GetFileList not implemented
+	VStrCat(DirectoryFullPath, "/");
+	auto DirLen = VStrLen(DirectoryFullPath);
+	DIR *Dir = opendir(DirectoryFullPath);
+	while(true)
+	{
+		dirent *DirInfo = readdir(Dir);
+		if(DirInfo == NULL)
+			break;
+
+		VStrCat(DirectoryFullPath, DirInfo->d_name);
+		int FullLen = VStrLen(DirectoryFullPath);
+		char *FullPath = (char *)VAlloc(FullLen + 1);
+		memcpy(FullPath, DirectoryFullPath, FullLen);
+		VLibArrPush(Result, FullPath);
+
+		DirectoryFullPath[DirLen] = 0;
+	}
+	closedir(Dir);
+	return Result;
 #endif
 }
 
@@ -361,7 +415,11 @@ _VLibClock(i64 Factor)
 	
 	return (PerformanceCounter.QuadPart - StartCounter) * (Factor) / PerfFrequency;
 #else
-#error VLibClockNs not implemented
+
+	timespec Counter;
+	clock_gettime(CPUClockID, &Counter);
+	
+	return (Counter.tv_nsec - StartCounter.tv_nsec) * (1000000000 / Factor);
 #endif
 }
 
@@ -424,12 +482,12 @@ VLibCompareTimers(timer_group A, timer_group B)
 	}
 	else
 	{
-		printf("It's draw with both %s and %s taking %lld microseconds", A.Name, B.Name, ATime);
+		printf("It's draw with both %s and %s taking %ld microseconds", A.Name, B.Name, ATime);
 		return;
 	}
 	i64 WinnerTimer = Winner->End - Winner->Start;
 	i64 LoserTimer = Loser->End - Loser->Start;
-	printf("%s wins with a time of %lldus\n%s has %lldus, they lost by %lldus", Winner->Name, WinnerTimer, Loser->Name, LoserTimer, LoserTimer - WinnerTimer);
+	printf("%s wins with a time of %ldus\n%s has %ldus, they lost by %ldus", Winner->Name, WinnerTimer, Loser->Name, LoserTimer, LoserTimer - WinnerTimer);
 }
 
 #ifndef VLIB_NO_SHORT_NAMES

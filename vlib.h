@@ -321,7 +321,7 @@ GetFileList(const char *DirectoryPath)
 	VStrCat(DirectoryFullPath, "\\");
 	auto DirLen = VStrLen(DirectoryFullPath);
 
-	char *Search = (char *)VAlloc(VStrLen((char *)Directory) + 4);
+	char *Search = (char *)VAlloc(VStrLen((char *)DirectoryPath) + 4);
 	VStrCat(Search, (char *)DirectoryFullPath);
 	VStrCat(Search, "*");
 
@@ -482,12 +482,12 @@ VLibCompareTimers(timer_group A, timer_group B)
 	}
 	else
 	{
-		printf("It's draw with both %s and %s taking %ld microseconds", A.Name, B.Name, ATime);
+		printf("It's draw with both %s and %s taking %lld microseconds", A.Name, B.Name, ATime);
 		return;
 	}
 	i64 WinnerTimer = Winner->End - Winner->Start;
 	i64 LoserTimer = Loser->End - Loser->Start;
-	printf("%s wins with a time of %ldus\n%s has %ldus, they lost by %ldus", Winner->Name, WinnerTimer, Loser->Name, LoserTimer, LoserTimer - WinnerTimer);
+	printf("%s wins with a time of %lldus\n%s has %lldus, they lost by %lldus", Winner->Name, WinnerTimer, Loser->Name, LoserTimer, LoserTimer - WinnerTimer);
 }
 
 #ifndef VLIB_NO_SHORT_NAMES

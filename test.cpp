@@ -1,13 +1,14 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "vlib.h"
 #include <vector>
 using namespace std;
 
 
-typedef struct __attribute__ ((packed))
+struct some_data
 {
     int y;
     short x;
-} some_data;
+} __attribute__ ((packed));
 
 
 #define ITs 5000000

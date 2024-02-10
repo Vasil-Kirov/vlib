@@ -101,7 +101,7 @@ inline b32 InitVLib()
 #endif
 }
 
-inline void *AllocateVirtualMemory(unsigned long long Size)
+inline void *AllocateVirtualMemory(size_t Size)
 {
 #if defined(_WIN32)
 	return VirtualAlloc(NULL, Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -111,7 +111,7 @@ inline void *AllocateVirtualMemory(unsigned long long Size)
 }
 
 // @NOTE: Default allocator
-inline void *AllocateMemory(int Size)
+inline void *AllocateMemory(size_t Size)
 {
 	void *Result = malloc(Size);
 	memset(Result, 0, Size);

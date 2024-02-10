@@ -106,7 +106,18 @@ inline void *AllocateVirtualMemory(size_t Size)
 #if defined(_WIN32)
 	return VirtualAlloc(NULL, Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 #else
-	return mmap(NULL, Size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	void *Result = mmap(NULL, Size + sizeof(size_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+	*(size_t *)Result = Size;
+	return (size_t *)Result + 1;
+#endif
+}
+
+inline void FreeVirtualMemory(void *Memory)
+{
+#if defined(_WIN32)
+	VirtualFree(Memory, 0, MEM_RELEASE);
+#else
+	munmap(Memory, ((size_t *)Memory)[-1]);
 #endif
 }
 

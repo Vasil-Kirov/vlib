@@ -72,7 +72,50 @@ typedef struct
 
 #define RET_EMPTY(TYPE) { TYPE __EMPTY_S__ = {0}; return __EMPTY_S__; }
 
-static b32 IsVLibInit = false;
+inline void *AllocateVirtualMemory(size_t Size);
+inline b32 InitVLib();
+inline void FreeVirtualMemory(void *Memory);
+inline void *AllocateMemory(size_t Size);
+void *_VLibArrCreate(size_t TypeSize);
+bool VStrCompare(char *str1, char *str2);
+int StringToNum(char *String);
+inline entire_file ReadEntireFile(const char *FileName);
+inline char *ChangeFileExtension(const char *FileName, const char *NewExt);
+inline char *GetAbsolutePath(const char *RelativePath);
+bool GetActiveDirectory(char *Out);
+inline void FreeFileList(const char **List);
+inline char **GetFileList(const char *DirectoryPath);
+bool StringEndsWith(char *String, char *End);
+i64 _VLibClock(i64 Factor);
+i64 VLibClockNs();
+i64 VLibClockMs();
+i64 VLibClockS();
+timer_group VLibStartTimer(const char *Name);
+void VLibStopTimer(timer_group *Group);
+void VLibCompareTimers(timer_group A, timer_group B);
+
+#define ARR_HEAD(ARR) (((arr_header *)ARR) - 1)
+#define VLibArrCreate(TYPE) (TYPE *)_VLibArrCreate(sizeof(TYPE))
+#define VLibArrPush(ARR, ITEM) _VLibArrPush((void **)&ARR, (void *)&ITEM)
+#define VLibArrLen(ARR) ARR_HEAD(ARR)->Len
+#define VLibArrFree(ARR) VFree(ARR_HEAD(ARR))
+
+#ifndef VLIB_NO_SHORT_NAMES
+#define ArrCreate VLibArrCreate
+#define ArrPush   VLibArrPush
+#define ArrLen    VLibArrLen
+#define ArrFree   VLibArrFree
+#define ClockNs VLibClockNs 
+#define ClockUs VLibClockUs 
+#define ClockMs VLibClockMs 
+#define ClockS  VLibClockS 
+#endif
+
+
+
+#define VLIB_IMPL
+#if defined(VLIB_IMPL)
+b32 IsVLibInit = false;
 
 // @Note: Only needed for timers
 inline b32 InitVLib()
@@ -144,19 +187,6 @@ typedef struct
 	size_t Used;
 	size_t Len;
 } arr_header;
-
-#define ARR_HEAD(ARR) (((arr_header *)ARR) - 1)
-#define VLibArrCreate(TYPE) (TYPE *)_VLibArrCreate(sizeof(TYPE))
-#define VLibArrPush(ARR, ITEM) _VLibArrPush((void **)&ARR, (void *)&ITEM)
-#define VLibArrLen(ARR) ARR_HEAD(ARR)->Len
-#define VLibArrFree(ARR) VFree(ARR_HEAD(ARR))
-
-#ifndef VLIB_NO_SHORT_NAMES
-#define ArrCreate VLibArrCreate
-#define ArrPush   VLibArrPush
-#define ArrLen    VLibArrLen
-#define ArrFree   VLibArrFree
-#endif
 
 void *
 _VLibArrCreate(size_t TypeSize)
@@ -330,7 +360,7 @@ GetFileList(const char *DirectoryPath)
 		return NULL;
 #if defined(_WIN32)
 	VStrCat(DirectoryFullPath, "\\");
-	auto DirLen = VStrLen(DirectoryFullPath);
+	size_t DirLen = VStrLen(DirectoryFullPath);
 
 	char *Search = (char *)VAlloc(VStrLen((char *)DirectoryPath) + 4);
 	VStrCat(Search, (char *)DirectoryFullPath);
@@ -501,9 +531,5 @@ VLibCompareTimers(timer_group A, timer_group B)
 	printf("%s wins with a time of %lldus\n%s has %lldus, they lost by %lldus", Winner->Name, WinnerTimer, Loser->Name, LoserTimer, LoserTimer - WinnerTimer);
 }
 
-#ifndef VLIB_NO_SHORT_NAMES
-#define ClockNs VLibClockNs 
-#define ClockUs VLibClockUs 
-#define ClockMs VLibClockMs 
-#define ClockS  VLibClockS 
-#endif
+#endif // Implementation
+

@@ -120,7 +120,6 @@ void VLibCompareTimers(timer_group A, timer_group B);
 
 
 
-#define VLIB_IMPL
 #if defined(VLIB_IMPL)
 b32 IsVLibInit = false;
 

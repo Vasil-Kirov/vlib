@@ -66,6 +66,13 @@ typedef struct
 	int Size;
 } entire_file;
 
+typedef struct
+{
+	const char *Name;
+	i64 Start;
+	i64 End;
+} timer_group;
+
 #define KB(N) (((unsigned long long)N) << 10)
 #define MB(N) (((unsigned long long)N) << 20)
 #define GB(N) (((unsigned long long)N) << 30)
@@ -436,13 +443,6 @@ StringEndsWith(char *String, char *End)
 // *
 // *
 // **************************************************************
-
-typedef struct
-{
-	const char *Name;
-	i64 Start;
-	i64 End;
-} timer_group;
 
 i64
 _VLibClock(i64 Factor)

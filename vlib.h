@@ -5,8 +5,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <errno.h>
-#define _CRT_SECURE_NO_WARNINGS
 
+#define ARR_LEN(ARR) (sizeof((ARR)) / sizeof((ARR)[0]))
 #ifndef VAlloc
 #define VAlloc  AllocateMemory
 #endif
@@ -37,9 +37,6 @@ typedef double   f64;
 #include <Windows.h>
 
 #define VMAX_PATH MAX_PATH
-
-i64 StartCounter;
-i64 PerfFrequency;
 
 #else
 
@@ -79,19 +76,19 @@ typedef struct
 
 #define RET_EMPTY(TYPE) { TYPE __EMPTY_S__ = {0}; return __EMPTY_S__; }
 
-inline void *AllocateVirtualMemory(size_t Size);
-inline b32 InitVLib();
-inline void FreeVirtualMemory(void *Memory);
-inline void *AllocateMemory(size_t Size);
+void *AllocateVirtualMemory(size_t Size);
+b32 InitVLib();
+void FreeVirtualMemory(void *Memory);
+void *AllocateMemory(size_t Size);
 void *_VLibArrCreate(size_t TypeSize);
 bool VStrCompare(char *str1, char *str2);
 int StringToNum(char *String);
-inline entire_file ReadEntireFile(const char *FileName);
-inline char *ChangeFileExtension(const char *FileName, const char *NewExt);
-inline char *GetAbsolutePath(const char *RelativePath);
+entire_file ReadEntireFile(const char *FileName);
+char *ChangeFileExtension(const char *FileName, const char *NewExt);
+char *GetAbsolutePath(const char *RelativePath);
 bool GetActiveDirectory(char *Out);
-inline void FreeFileList(const char **List);
-inline char **GetFileList(const char *DirectoryPath);
+void FreeFileList(const char **List);
+char **GetFileList(const char *DirectoryPath);
 bool StringEndsWith(char *String, char *End);
 i64 _VLibClock(i64 Factor);
 i64 VLibClockNs();
@@ -119,12 +116,15 @@ void VLibCompareTimers(timer_group A, timer_group B);
 #endif
 
 
+#if defined VLIB_IMPLEMENTATION
 
-#if defined(VLIB_IMPL)
+i64 StartCounter;
+i64 PerfFrequency;
+
 b32 IsVLibInit = false;
 
 // @Note: Only needed for timers
-inline b32 InitVLib()
+b32 InitVLib()
 {
 #if defined(_WIN32)
 	LARGE_INTEGER PerfFreqLarge;
@@ -150,7 +150,7 @@ inline b32 InitVLib()
 #endif
 }
 
-inline void *AllocateVirtualMemory(size_t Size)
+void *AllocateVirtualMemory(size_t Size)
 {
 #if defined(_WIN32)
 	return VirtualAlloc(NULL, Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -161,7 +161,7 @@ inline void *AllocateVirtualMemory(size_t Size)
 #endif
 }
 
-inline void FreeVirtualMemory(void *Memory)
+void FreeVirtualMemory(void *Memory)
 {
 #if defined(_WIN32)
 	VirtualFree(Memory, 0, MEM_RELEASE);
@@ -171,7 +171,7 @@ inline void FreeVirtualMemory(void *Memory)
 }
 
 // @NOTE: Default allocator
-inline void *AllocateMemory(size_t Size)
+void *AllocateMemory(size_t Size)
 {
 	void *Result = malloc(Size);
 	memset(Result, 0, Size);
@@ -278,7 +278,7 @@ StringToNum(char *String)
 	return Result;
 }
 
-inline entire_file ReadEntireFile(const char *FileName)
+entire_file ReadEntireFile(const char *FileName)
 {
 	entire_file Result = {0};
 	FILE *f;
@@ -299,7 +299,7 @@ inline entire_file ReadEntireFile(const char *FileName)
 	return Result;
 }
 
-inline char *
+char *
 ChangeFileExtension(const char *FileName, const char *NewExt)
 {
 	size_t len = VStrLen(FileName);
@@ -314,7 +314,7 @@ ChangeFileExtension(const char *FileName, const char *NewExt)
 	return result;
 }
 
-inline char *GetAbsolutePath(const char *RelativePath)
+char *GetAbsolutePath(const char *RelativePath)
 {
 #if defined(_WIN32)
 	char *FullPath = (char *)VAlloc(VMAX_PATH);
@@ -346,7 +346,7 @@ GetActiveDirectory(char *Out)
 #endif
 }
 
-inline void
+void
 FreeFileList(const char **List)
 {
 	int ListLen = VLibArrLen(List);
@@ -357,7 +357,7 @@ FreeFileList(const char **List)
 	VLibArrFree(List);
 }
 
-inline char **
+char **
 GetFileList(const char *DirectoryPath)
 {
 	char *DirectoryFullPath = (char *)GetAbsolutePath((char *)DirectoryPath);
@@ -529,6 +529,6 @@ VLibCompareTimers(timer_group A, timer_group B)
 	i64 LoserTimer = Loser->End - Loser->Start;
 	printf("%s wins with a time of %lldus\n%s has %lldus, they lost by %lldus", Winner->Name, WinnerTimer, Loser->Name, LoserTimer, LoserTimer - WinnerTimer);
 }
-
-#endif // Implementation
+#endif
+// Implementation
 

@@ -54,8 +54,30 @@ clockid_t CPUClockID;
 
 #endif
 
-#if !defined __cplusplus
+#if defined __cplusplus
+extern "C" {
 #endif
+
+typedef enum
+{
+	T_ID,
+	T_PUNCT,
+	T_NUM,
+	T_KEYWORD
+} token_type;
+
+typedef struct
+{
+	const char *Str;
+	i64 Len;
+} token_id;
+
+typedef struct
+{
+	token_type Type;
+	token_id ID;
+	i32 Keyword;
+} token;
 
 typedef struct
 {
@@ -103,6 +125,7 @@ void VLibCompareTimers(timer_group A, timer_group B);
 #define VLibArrPush(ARR, ITEM) _VLibArrPush((void **)&ARR, (void *)&ITEM)
 #define VLibArrLen(ARR) ARR_HEAD(ARR)->Len
 #define VLibArrFree(ARR) VFree(ARR_HEAD(ARR))
+#define VLibTokinizeAddKeyword(k) _VLibTokinizeAddKeyword(k, sizeof(k) - 1)
 
 #ifndef VLIB_NO_SHORT_NAMES
 #define ArrCreate VLibArrCreate
@@ -113,8 +136,9 @@ void VLibCompareTimers(timer_group A, timer_group B);
 #define ClockUs VLibClockUs 
 #define ClockMs VLibClockMs 
 #define ClockS  VLibClockS 
+#define TokinizeAddKeyword VLibTokinizeAddKeyword
+#define TokinizeString VLibTokinizeString
 #endif
-
 
 #if defined VLIB_IMPLEMENTATION
 
@@ -529,6 +553,102 @@ VLibCompareTimers(timer_group A, timer_group B)
 	i64 LoserTimer = Loser->End - Loser->Start;
 	printf("%s wins with a time of %lldus\n%s has %lldus, they lost by %lldus", Winner->Name, WinnerTimer, Loser->Name, LoserTimer, LoserTimer - WinnerTimer);
 }
+
+
+token_id VLibKeywords[128] = {};
+i32 VLibKeywordCount = 0;
+void _VLibTokinizeAddKeyword(const char *Keyword, i32 Len)
+{
+	VLibKeywords[VLibKeywordCount].Str = Keyword;
+	VLibKeywords[VLibKeywordCount].Len = Len;
+	VLibKeywordCount++;
+}
+
+// Returns an array allocated with ArrCreate
+// use ArrFree after you're done
+// id's use pointers in the provided str
+token *VLibTokinizeString(const char *Str)
+{
+	token *Tokens = ArrCreate(token);
+	while(*Str != 0)
+	{
+		while(isspace(*Str)) Str++;
+		if(*Str == 0)
+			break;
+
+		const char *Start = Str;
+		if(isalpha(*Str))
+		{
+			while(isalnum(*Str) || *Str == '_') Str++;
+			token Token = {
+				.Type = T_ID,
+				.ID = {
+					.Str = Start,
+					.Len = Str - Start,
+				},
+				.Keyword = -1,
+			};
+			for(i32 i = 0; i < VLibKeywordCount; ++i)
+			{
+				if(Token.ID.Len == VLibKeywords[i].Len)
+				{
+					if(memcmp(Token.ID.Str, VLibKeywords[i].Str, Token.ID.Len) == 0)
+					{
+						Token.Type = T_KEYWORD;
+						Token.Keyword = i;
+						break;
+					}
+				}
+			}
+			ArrPush(Tokens, Token);
+		}
+		else if(isdigit(*Str) || (*Str == '-' && isdigit(Str[1])))
+		{
+			Str++;
+			b32 FoundDot = false;
+			while(isdigit(*Str) || *Str == '.')
+			{
+				if(*Str == '.')
+				{
+					if(FoundDot)
+						break;
+					FoundDot = true;
+				}
+				Str++;
+			}
+			token Token = {
+				.Type = T_NUM,
+				.ID = {
+					.Str = Start,
+					.Len = Str - Start,
+				},
+				.Keyword = -1,
+			};
+			ArrPush(Tokens, Token);
+		}
+		else if(ispunct(*Str))
+		{
+			Str++;
+			token Token = {
+				.Type = T_PUNCT,
+				.ID = {
+					.Str = Start,
+					.Len = 1,
+				},
+				.Keyword = -1,
+			};
+			ArrPush(Tokens, Token);
+		}
+		else 
+			break;
+
+	}
+	return Tokens;
+}
+
+#endif // Implementation
+
+#if defined __cplusplus
+}
 #endif
-// Implementation
 

@@ -543,11 +543,12 @@ VLibCompareTimers(timer_group A, timer_group B)
 
 token_id VLibKeywords[128] = {};
 i32 VLibKeywordCount = 0;
-void _VLibTokinizeAddKeyword(const char *Keyword, i32 Len)
+i32 _VLibTokinizeAddKeyword(const char *Keyword, i32 Len)
 {
 	VLibKeywords[VLibKeywordCount].Str = Keyword;
 	VLibKeywords[VLibKeywordCount].Len = Len;
-	VLibKeywordCount++;
+	i32 result = VLibKeywordCount++;
+	return result;
 }
 
 // Returns an array allocated with ArrCreate

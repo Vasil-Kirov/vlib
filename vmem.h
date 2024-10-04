@@ -4,6 +4,7 @@
 #include <malloc.h>
 
 typedef struct Allocator Allocator;
+typedef struct ArenaAlloc ArenaAlloc;
 
 typedef enum {
 	Alloc_DynamicFree = BIT(0),

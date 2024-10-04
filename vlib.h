@@ -89,6 +89,7 @@ b32 InitVLib();
 void FreeVirtualMemory(void *Memory);
 void *AllocateMemory(size_t Size);
 void *_VLibArrCreate(size_t TypeSize);
+void _VLibArrPush(void **Array, void *Item);
 bool VStrCompare(char *str1, char *str2);
 int StringToNum(char *String);
 entire_file ReadEntireFile(const char *FileName);
@@ -99,12 +100,22 @@ void FreeFileList(const char **List);
 char **GetFileList(const char *DirectoryPath);
 bool StringEndsWith(char *String, char *End);
 i64 _VLibClock(i64 Factor);
+i32 _VLibTokinizeAddKeyword(const char *Keyword, i32 Len);
+token *VLibTokinizeString(const char *Str);
 i64 VLibClockNs();
 i64 VLibClockMs();
 i64 VLibClockS();
 timer_group VLibStartTimer(const char *Name);
 void VLibStopTimer(timer_group *Group);
 void VLibCompareTimers(timer_group A, timer_group B);
+
+typedef struct
+{
+	size_t TypeSize;
+	size_t Capacity;
+	size_t Used;
+	size_t Len;
+} arr_header;
 
 #define ARR_HEAD(ARR) (((arr_header *)ARR) - 1)
 #define VLibArrCreate(TYPE) (TYPE *)_VLibArrCreate(sizeof(TYPE))
@@ -195,14 +206,6 @@ void *AllocateMemory(size_t Size)
 // *
 // *
 // **************************************************************
-
-typedef struct
-{
-	size_t TypeSize;
-	size_t Capacity;
-	size_t Used;
-	size_t Len;
-} arr_header;
 
 void *
 _VLibArrCreate(size_t TypeSize)

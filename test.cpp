@@ -24,6 +24,15 @@ int main()
 	cout << ReadUInt32(&reader) << endl;
 	cout << ReadUInt64(&reader) << endl;
 
+	StringBuilder b = {};
+	push_builder(&b, STR_LIT("Hello "));
+	push_builder(&b, STR_LIT("World "));
+	push_builder(&b, STR_LIT("!"));
+	push_builder(&b, STR_LIT("\n"));
+	String s = builder_to_string(&b);
+	cout << s.data;
+
+
 #if 0
     InitVLib();
     printf("size of struct %zd\n", sizeof(some_data));

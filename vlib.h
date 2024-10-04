@@ -78,10 +78,6 @@ typedef struct
 	i64 End;
 } timer_group;
 
-#define KB(N) (((unsigned long long)N) << 10)
-#define MB(N) (((unsigned long long)N) << 20)
-#define GB(N) (((unsigned long long)N) << 30)
-
 #define RET_EMPTY(TYPE) { TYPE __EMPTY_S__ = {0}; return __EMPTY_S__; }
 
 void *AllocateVirtualMemory(size_t Size);

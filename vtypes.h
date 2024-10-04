@@ -15,3 +15,9 @@ typedef uint32_t b32;
 typedef float    f32;
 typedef double   f64;
 
+#define BIT(x) (1 << (x))
+
+#define KB(N) (((unsigned long long)N) << 10)
+#define MB(N) (((unsigned long long)N) << 20)
+#define GB(N) (((unsigned long long)N) << 30)
+

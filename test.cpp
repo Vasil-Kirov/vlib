@@ -2,6 +2,7 @@
 #define VLIB_IMPLEMENTATION
 #include "vlib.h"
 #include "vbytestream.h"
+#include "vmem.h"
 //#include <vector>
 #include <iostream>
 using namespace std;
@@ -31,6 +32,13 @@ int main()
 	push_builder(&b, STR_LIT("\n"));
 	String s = builder_to_string(&b);
 	cout << s.data;
+
+	ArenaAlloc *arena = arena_create(arena_default_mem);
+	char *mem = (char *)arena->alloc.alloc(10, &arena->alloc);
+	memcpy(mem, "Hello\n", 6);
+	cout << mem;
+	arena_free(arena);
+	cout << mem;
 
 
 #if 0

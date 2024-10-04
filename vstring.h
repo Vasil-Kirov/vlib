@@ -2,18 +2,21 @@
 #include "vlib.h"
 #include <memory.h>
 
+typedef struct StringBuilder StringBuilder;
+typedef struct String String;
+
 void *VLibMemDup(void *, size_t);
-bool VLibStringsMatch(struct String a, struct String b);
+bool VLibStringsMatch(String a, String b);
 struct String VLibMakeString(const char *str, size_t len);
-struct String VLibBuilderToString(struct StringBuilder *b);
-void VLibPushBuilder(struct StringBuilder *b, struct String str);
-void VLibFreeBuilderMemory(struct StringBuilder *b);
+struct String VLibBuilderToString(StringBuilder *b);
+void VLibPushBuilder(StringBuilder *b, String str);
+void VLibFreeBuilderMemory(StringBuilder *b);
 
-typedef struct StringBuilder {
+struct StringBuilder {
 	char *VLibArray;
-} StringBuilder;
+};
 
-typedef struct String {
+struct String {
 	const char *data;
 	size_t len;
 #if defined(__cplusplus)
@@ -27,7 +30,7 @@ typedef struct String {
 #endif
 
 #endif
-} String;
+};
 
 #define STR_LIT(STR) VLibMakeString(STR, sizeof(STR) - 1)
 
